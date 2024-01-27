@@ -65,7 +65,7 @@ def opponents_move(env):
    env.change_player() # change back to student before returning
    return state, reward, done
 
-def student_move():
+def student_move(state):
    """
    TODO: Implement your min-max alpha-beta pruning algorithm here.
    Give it whatever input arguments you think are necessary
@@ -75,14 +75,9 @@ def student_move():
 
    # Define a recursive function for minimax with alpha-beta pruning
    def minimax(state, depth, alpha, beta, maximizing_player):
-        # Base case: Check if the game is over or maximum depth is reached
-        # Evaluate the current game state and return the score
-        if depth == 0 or game_over(state):
-            return evaluate(state)
-
         if maximizing_player:
             max_eval = float('-inf')
-            for move in available_moves(state):
+            for move in env.available_moves():
                 # Make the move
                 new_state = make_move(state, move)
                 # Recursive call to evaluate the next state
@@ -94,9 +89,10 @@ def student_move():
             return max_eval
         else:
             min_eval = float('inf')
-            for move in available_moves(state):
+            for move in env.available_moves():
                 # Make the move
                 new_state = make_move(state, move)
+               #  env.change_player()
                 # Recursive call to evaluate the next state
                 eval = minimax(new_state, depth - 1, alpha, beta, True)
                 min_eval = min(min_eval, eval)
@@ -110,7 +106,7 @@ def student_move():
    max_eval = float('-inf')
    alpha = float('-inf')
    beta = float('inf')
-   for move in available_moves(state):
+   for move in env.available_moves():
       # Make the move
       new_state = make_move(state, move)
       # Evaluate the move using minimax
@@ -118,9 +114,27 @@ def student_move():
       if eval > max_eval:
          max_eval = eval
          best_move = move
+   print("BEST MOVE: ", best_move)
    return best_move
 
    # return random.choice([0, 1, 2, 3, 4, 5, 6]);
+
+def make_move(state, col):
+    """
+    Make a move (place a disc) in the specified column of the game state.
+    Args:
+        state (np.array): Current game state represented as a numpy array.
+        col (int): Column index where the move will be made.
+        player (int): Player index (1 for player, -1 for opponent).
+
+    Returns:
+        np.array: Updated game state after making the move.
+    """
+    for row in range(state.shape[0] - 1, -1, -1):
+        if state[row][col] == 0:
+            state[row][col] = '1'
+            break
+    return state
 
 def play_game(vs_server = False):
    """
@@ -168,7 +182,7 @@ def play_game(vs_server = False):
    done = False
    while not done:
       # Select your move
-      stmove = student_move() # TODO: change input here
+      stmove = student_move(state) # TODO: change input here
 
       # make both student and bot/server moves
       if vs_server:
