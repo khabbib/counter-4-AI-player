@@ -7,7 +7,10 @@ import sys
 from gym_connect_four import ConnectFourEnv
 
 env: ConnectFourEnv = gym.make("ConnectFour-v0")
-
+AI_PIECE = -1
+PLAYER_PIECE = 1
+COLUMN_COUNT = 7
+ROW_COUNT = 6
 SERVER_ADDRESS = "https://vilde.cs.lth.se/edap01-4inarow/"
 API_KEY = 'nyckel'
 STIL_ID = ["ha8804mo-s"] # TODO: fill this list with your stil-id's
@@ -39,62 +42,104 @@ def check_stats():
    stats = res.json()
    return stats
 
-"""
-You can make your code work against this simple random agent
-before playing against the server.
-It returns a move 0-6 or -1 if it could not make a move.
-To check your code for better performance, change this code to
-use your own algorithm for selecting actions too
-"""
-def opponents_move(env):
-   env.change_player() # change to oppoent
-   avmoves = env.available_moves()
-   if not avmoves:
-      env.change_player() # change back to student before returning
-      return -1
+# def student_move():
+#    """
+#    TODO: Implement your min-max alpha-beta pruning algorithm here.
+#    Give it whatever input arguments you think are necessary
+#    (and change where it is called).
+#    The function should return a move from 0-6
+#    """
+#    return random.choice([0, 1, 2, 3, 4, 5, 6])
 
-   # TODO: Optional? change this to select actions with your policy too
-   # that way you get way more interesting games, and you can see if starting
-   # is enough to guarrantee a win
-   action = random.choice(list(avmoves))
 
-   state, reward, done, _ = env.step(action)
-   if done:
-      if reward == 1: # reward is always in current players view
-         reward = -1
-   env.change_player() # change back to student before returning
-   return state, reward, done
+def is_terminal(node):
+    # Check if the board is full
+    if not 0 in node:
+        return True
+    # Check for a winning line
+    for player in [-1, 1]:
+        # Horizontal
+        for row in node:
+            for i in range(len(row) - 3):
+                if row[i] == player and row[i+1] == player and row[i+2] == player and row[i+3] == player:
+                    return True
+        # Vertical
+        for j in range(len(node[0])):
+            for i in range(len(node) - 3):
+                if node[i][j] == player and node[i+1][j] == player and node[i+2][j] == player and node[i+3][j] == player:
+                    return True
+        # Diagonal
+        for i in range(len(node) - 3):
+            for j in range(len(node[0]) - 3):
+                if node[i][j] == player and node[i+1][j+1] == player and node[i+2][j+2] == player and node[i+3][j+3] == player:
+                    return True
+                if node[i][j+3] == player and node[i+1][j+2] == player and node[i+2][j+1] == player and node[i+3][j] == player:
+                    return True
+
+    # If no terminal state is found, return False
+    return False
+
+def get_valid_moves(node):
+    # This function should return a list of valid moves for the current game state.
+    # In Connect 4, a move is valid if the chosen column is not already full.
+    return env.available_moves()
+
+def make_move(node, move, is_maximizing_player):
+    # This function should return a new game state after making the given move.
+    # You'll need to implement this based on your game state representation.
+    env.change_player()
+    new_state, reward, done, _ = env.step(move)
+    env.change_player()
+    return new_state
+
+def evaluate(node):
+    # This function should return a score representing the value of the game state for the maximizing player.
+    # A common approach is to count the number of '4 in a row' possibilities for the maximizing player minus
+    # the number of '4 in a row' possibilities for the minimizing player.
+    # For simplicity, we can use the reward as the evaluation function.
+   random.randint(-100, 100)
 
 def student_move(state):
-   """
-   TODO: Implement your min-max alpha-beta pruning algorithm here.
-   Give it whatever input arguments you think are necessary
-   (and change where it is called).
-   The function should return a move from 0-6
-   """
-   # Define a recursive function for minimax with alpha-beta pruning
-   
+  
 
-   return random.choice([0, 1, 2, 3, 4, 5, 6]);
+  
+    # recursive minmax
+    # TIPS: Implementera without alpha beta purring i första steg
+    # 
+    _, best_move = minimax(state, 4, float('-inf'), float('inf'), True)
+    return best_move
 
-def make_move(state, col):
-    """
-    Make a move (place a disc) in the specified column of the game state.
-    Args:
-        state (np.array): Current game state represented as a numpy array.
-        col (int): Column index where the move will be made.
-        player (int): Player index (1 for player, -1 for opponent).
+def minimax(node, depth, alpha, beta, maximizing_player):
+    if depth == 0 or is_terminal(node):
+        return evaluate(node), None
 
-    Returns:
-        np.array: Updated game state after making the move.
-    """
-    for row in range(state.shape[0] - 1, -1, -1):
-        if state[row][col] == 0:
-            state[row][col] = '1'
-            break
-    return state
+    if maximizing_player:
+        max_eval = float('-inf')
+        best_move = None
+        for move in get_valid_moves(node):
+            eval, _ = minimax(make_move(node, move, True), depth - 1, alpha, beta, False)
+            if eval is not None and eval > max_eval:
+                max_eval = eval
+                best_move = move
+            alpha = max(alpha, eval)
+            if beta <= alpha:
+                break
+        return max_eval, best_move
+    else:
+        min_eval = float('inf')
+        best_move = None
+        for move in get_valid_moves(node):
+            eval, _ = minimax(make_move(node, move, False), depth - 1, alpha, beta, True)
+            if eval is not None and eval < min_eval:
+                min_eval = eval
+                best_move = move
+            beta = min(beta, eval)
+            if beta <= alpha:
+                break
+        return min_eval, best_move
 
-def play_game(vs_server = False):
+
+def play_game(vs_server):
    """
    The reward for a game is as follows. You get a
    botaction = random.choice(list(avmoves)) reward from the
@@ -141,7 +186,7 @@ def play_game(vs_server = False):
    while not done:
       # Select your move
       stmove = student_move(state) # TODO: change input here
-
+      print("Studen move: ", stmove)
       # make both student and bot/server moves
       if vs_server:
          # Send your move to server and get response
@@ -169,7 +214,8 @@ def play_game(vs_server = False):
 
          # select and make a move for the opponent, returned reward from students view
          if not done:
-            state, result, done = opponents_move(env)
+             state, reward, done = opponents_move(env)
+             state, result, done, _ = env.step(stmove)
 
       # Check if the game is over
       if result != 0:
@@ -195,6 +241,33 @@ def play_game(vs_server = False):
       print(state)
       print()
 
+def opponents_move(env):
+   env.change_player() # change to oppoent
+   avmoves = env.available_moves()
+   if not avmoves:
+      env.change_player() # change back to student before returning
+      return -1
+
+   # TODO: Optional? change this to select actions with your policy too
+   # that way you get way more interesting games, and you can see if starting
+   # is enough to guarrantee a win
+   action = random.choice(list(avmoves))
+
+   state, reward, done, _ = env.step(action)
+   if done:
+      if reward == 1: # reward is always in current players view
+         reward = -1
+   env.change_player() # change back to student before returning
+   return state, reward, done
+
+
+
+
+
+
+###################################################
+      # starter
+###################################################
 def main():
    # Parse command line arguments
    parser = argparse.ArgumentParser()
@@ -203,7 +276,6 @@ def main():
    # group.add_argument("-o", "--online", help = "Play online vs server", action="store_true")
    # parser.add_argument("-s", "--stats", help = "Show your current online stats", action="store_true")
    args = parser.parse_args()
-
    # Print usage info if no arguments are given
    if len(sys.argv)==1:
       parser.print_help(sys.stderr)
